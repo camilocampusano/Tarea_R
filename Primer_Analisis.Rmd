@@ -1,0 +1,96 @@
+---
+title: "Primer_Analisis"
+author: "Camilo Campusano"
+date: "9/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(png)
+library(broom)
+library(rmarkdown)
+library(kableExtra)
+```
+
+```{r}
+PanTheria <- read_delim("http://esapubs.org/archive/ecol/E090/184/PanTHERIA_1-0_WR05_Aug2008.txt", "\t", escape_double = FALSE, col_types = cols(`1-1_ActivityCycle` = col_number(),`13-1_AdultHeadBodyLen_mm` = col_number(),`5-1_AdultBodyMass_g` = col_number(),`8-1_AdultForearmLen_mm` = col_number()),trim_ws = TRUE)
+```
+
+
+```{r}
+# quería insertar la  siguiente imagen:
+# ![](~/Documents/2do Semestre/R/GitHub Proyect/Primer_Analisis_C_Campusano/logo.png)
+
+#pero me lanza el siguiente error:
+# File ~/Documents/2do Semestre/R/GitHub Proyect/Primer_Analisis_C_Campusano/logo.png not found in resource path
+# Error: pandoc document conversion failed with error 99
+# Execution halted
+```
+
+
+
+# Exploración de Datos de PanTHERIA
+*Doctorado en Ciencias Biológicas, Genética Molecular y Microbiología*
+
+*BIO4022 - Análisis y Manipulación de Datos en R*
+
+## Extracción de los Datos
+
+Correspondiente a el primer trabajo de exploración de datos, éstos fueron extraidos desde PanTHERIA ("http://esapubs.org/archive/ecol/E090/184/PanTHERIA_1-0_WR05_Aug2008.txt")
+
+## Primer filtro
+Como promer acercamiento, filtré ( _eliminé_ ) aquellas filas (y sus columnas) que no tenían datos (en esta base de datos estaban representadas por un "-999") y seleccioné 6 Columnas de Interés
+```{r}
+fp_01 <- PanTheria %>% dplyr::select(MSW05_Order, MSW05_Genus, MSW05_Species, "5-1_AdultBodyMass_g", "5-3_NeonateBodyMass_g", "13-1_AdultHeadBodyLen_mm", "13-2_NeonateHeadBodyLen_mm", "9-1_GestationLen_d", "17-1_MaxLongevity_m") %>%
+  rename(Orden = MSW05_Order, Genero = MSW05_Genus, Especie = MSW05_Species, MC_A = "5-1_AdultBodyMass_g", MC_Neo = "5-3_NeonateBodyMass_g", Tamanho_A = "13-1_AdultHeadBodyLen_mm", Tamanho_Neo = "13-2_NeonateHeadBodyLen_mm", Tiempo_Gestacion = "9-1_GestationLen_d", Longevidad = "17-1_MaxLongevity_m")
+
+fp_01
+```
+**Tabla 1.** _Se muestran las primeras variables selecciondas como promer filtro_
+
+
+## Segundo filtro
+Luego, realizacé un segundo filtro. Esta vez, me quedé sólo con aquellos conjuntos de datos completos. _Eliminé las filas que tuvieran un "-999"_. Además, de agrupar los datos por "Orden".
+```{r}
+fp_02 <- fp_01 %>% filter(MC_A != -999, MC_Neo != -999, Tamanho_A != -999, Tamanho_Neo != -999, Tiempo_Gestacion != -999, Longevidad != -999) %>% 
+  group_by(Orden)
+
+kable(cbind(fp_02), caption = "Tabla 2. Resultados del segundo filtro", digits = 2) %>%
+  kable_styling() %>%
+  scroll_box(width = "1000px", height = "200px")
+```
+
+## Obteniendo Estadígrafos
+Luego, desde los órdenes se obtuvo la media y la desviación estandard. En la Tabla 3 se muestra el número de géneros incluídos para el cálculo de los estadígrafos mencionados. 
+
+```{r}
+fp_Media_SD <- fp_02 %>% summarise(Mean.MC_A = mean(MC_A), Mean.MC_Neo = mean(MC_Neo), Mean.Tamanho_A = mean(Tamanho_A), Mean.Tamanho_Neo = mean(Tamanho_Neo), Mean.Tiempo_Gestacion = mean(Tiempo_Gestacion), Mean.Longevidad = mean(Longevidad), DS.MC_A = sd(MC_A), DS.MC_Neo = sd(MC_Neo), SD.Tamanho_A = sd(Tamanho_A), SD.Tamanho_Neo = sd(Tamanho_Neo), SD.Tiempo_Gestacion = sd(Tiempo_Gestacion), SD.Longevidad = sd(Longevidad))  %>% group_by(Orden)
+fp_N_Variables_Genero <- fp_02 %>% summarise(N = n())
+final <- full_join(fp_Media_SD, fp_N_Variables_Genero) %>% arrange(-N)
+kable(cbind(final), caption = "Tabla 3. Estadígrafos calculados con *R*. Mean = Media. DS = Desviación estándard", digits = 3) %>%
+  kable_styling() %>%
+  scroll_box(width = "1000px", height = "200px")
+```
+
+Así: `r round(final$N, 7)` corresponden a los n de "Órdenes" incluidos en cada análisis.
+
+
+## Buscando un modelo
+Finalmente, y como primera aproximación a la generación de un modelo realicé un gráfico que ralaciona la longevidad de los órdenes con respecto al tiempo de gestación.
+```{r, fig.cap= "Figura 1, relación entre longevidad y Tiempo de gestación"}
+ggplot(fp_Media_SD, aes(x = Mean.Longevidad, y = Mean.Tiempo_Gestacion)) +
+  geom_point(aes(colour = Orden)) + 
+  theme_classic()
+```
+
+
